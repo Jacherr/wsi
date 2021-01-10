@@ -1,0 +1,1 @@
+// statics.ts: types & constants for ./server
