@@ -3,6 +3,7 @@ import { IncomingMessage } from 'http';
 
 import { Connection } from './connection';
 import { CloseCodes, InvalidConnectionAttempt } from './statics';
+import { Wsi } from '../api';
 
 export interface WsiServerOptions {
     authorization?: string
@@ -16,8 +17,9 @@ export interface WsiServerOptions {
 }
 
 export class WsiServer {
+    readonly api: Wsi
     readonly authorization?: string
-    readonly connections = new Map<number, Connection>()
+    readonly connections = new Set<Connection>()
     readonly heartbeatFrequency: number = 30000
     readonly invalidConnectionAttempts = new Map<string, InvalidConnectionAttempt>()
     readonly invalidConnectionsRatelimitLimit: number = 3
@@ -29,11 +31,14 @@ export class WsiServer {
     private connectionsLength = 0
     private wss: Server
 
-    constructor(options: WsiServerOptions = {}, cb?: () => void) {
+    constructor(api: Wsi, options: WsiServerOptions = {}, cb?: () => void) {
+        this.api = api;
         this.authorization = options.authorization;
         this.heartbeatFrequency = options.heartbeatFrequency ?? this.heartbeatFrequency;
-        this.invalidConnectionsRatelimitLimit = options.invalidConnectionsRatelimitLimit ?? this.invalidConnectionsRatelimitLimit;
-        this.invalidConnectionsRatelimitReset = options.invalidConnectionsRatelimitReset ?? this.invalidConnectionsRatelimitReset;
+        this.invalidConnectionsRatelimitLimit = 
+            options.invalidConnectionsRatelimitLimit ?? this.invalidConnectionsRatelimitLimit;
+        this.invalidConnectionsRatelimitReset = 
+            options.invalidConnectionsRatelimitReset ?? this.invalidConnectionsRatelimitReset;
         this.isProxied = options.isProxied ?? this.isProxied;
         this.maxConnections = options.maxConnections ?? this.maxConnections;
         this.maxConnectionsPerSourceIp = options.maxConnectionsPerSourceIp ?? this.maxConnectionsPerSourceIp;
@@ -43,6 +48,23 @@ export class WsiServer {
         }, cb);
 
         this.wss.on('connection', this.onConnection.bind(this));
+    }
+
+    get scheduler() {
+        return this.api.scheduler;
+    }
+
+    private connectionRatelimitExceeded(sourceIp: string) {
+        const data = this.invalidConnectionAttempts.get(sourceIp);
+        if(!data) return false;
+        else {
+            if(Date.now() > data?.expire) {
+                this.invalidConnectionAttempts.delete(sourceIp);
+                return false;
+            }
+            if(data.count >= this.invalidConnectionsRatelimitLimit) return true;
+            return false;
+        }
     }
 
     onConnection(socket: WebSocket, request: IncomingMessage) {
@@ -68,23 +90,10 @@ export class WsiServer {
 
         const connection = new Connection(this, socket, sourceIp as string);
 
-        this.connections.set(this.connectionsLength, connection);
+        this.connections.add(connection);
         this.connectionsLength++;
 
         connection.hello();
-    }
-
-    private connectionRatelimitExceeded(sourceIp: string) {
-        const data = this.invalidConnectionAttempts.get(sourceIp);
-        if(!data) return false;
-        else {
-            if(Date.now() > data?.expire) {
-                this.invalidConnectionAttempts.delete(sourceIp);
-                return false;
-            }
-            if(data.count >= this.invalidConnectionsRatelimitLimit) return true;
-            return false;
-        }
     }
 
     private updateInvalidConnectionAttempts(sourceIp: string) {
