@@ -22,7 +22,7 @@ export enum PacketIdentifiers {
     JOB_INIT,
     JOB_INIT_ACK,
     JOB_INIT_DATA,
-    JOB_STATUS,
+    JOB_STATUS
 }
 
 export interface InvalidConnectionAttempt {

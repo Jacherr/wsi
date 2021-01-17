@@ -1,14 +1,15 @@
-import { Worker } from "../worker/worker";
-import { Connection } from "../server/connection";
+import { WorkerMaster } from '../worker/master';
+import { Connection } from '../server/connection';
+import { Job } from '../jobs/_job';
 
 export interface PendingJob {
-    jobId: string
-    jobName: string
+    id: string
+    job: Job
     setAt: number
 }
 
 export interface ActiveJob {
-    worker: Worker
+    worker: WorkerMaster
     jobId: string
     connection: Connection
 }

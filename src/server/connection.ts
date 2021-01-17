@@ -11,105 +11,105 @@ export class Connection {
 
     private lastHeartbeat: number = Date.now()
 
-    constructor(server: WsiServer, socket: WebSocket, source: string) {
-        this.server = server;
-        this.socket = socket;
-        this.source = source;
+    constructor (server: WsiServer, socket: WebSocket, source: string) {
+      this.server = server;
+      this.socket = socket;
+      this.source = source;
 
-        this.socket.on('message', this.onMessage.bind(this));
+      this.socket.on('message', this.onMessage.bind(this));
     }
 
-    close(code?: number, reason?: string) {
-        this.close(code, reason);
-        this.server.connections.delete(this);
+    close (code?: number, reason?: string) {
+      this.close(code, reason);
+      this.server.connections.delete(this);
     }
 
-    hello() {
-        return this.sendPacket<HelloPacket>({
-            i: PacketIdentifiers.HELLO,
-            d: {
-                heartbeat_interval: this.server.heartbeatFrequency,
-                maximum_concurrent_jobs: 5  // todo
-            }
-        })
-    }
-
-    onMessage(message: WebSocket.Data) {
-        let packet: Packet;
-        try {
-            packet = this.parseMessage(message);
-        } catch(e) {
-            return this.close(CloseCodes.MALFORMED_PACKET, e.message);
+    hello () {
+      return this.sendPacket<HelloPacket>({
+        i: PacketIdentifiers.HELLO,
+        d: {
+          heartbeat_interval: this.server.heartbeatFrequency,
+          maximum_concurrent_jobs: 5 // todo
         }
-        switch(packet.i) {
-            case PacketIdentifiers.HEARTBEAT: {
-                this.lastHeartbeat = Date.now();
-                this.sendPacket<HeartbeatAckPacket>({
-                    i: PacketIdentifiers.HEARTBEAT_ACK,
-                });
-                break;
-            }
-            case PacketIdentifiers.JOB_INIT_DATA: {
-                break;
-            }
-            case PacketIdentifiers.JOB_INIT: {
-                const parsedPacket = packet as JobInitPacket;
-                if(!parsedPacket.d.job) {
-                    this.socket.close(CloseCodes.MALFORMED_PACKET, 'No job name provided.');
-                }
-                try {
-                    this.processJobInit(parsedPacket.d.job);
-                } catch(e) {
-                    this.socket.close(CloseCodes.MALFORMED_PACKET, e.message);
-                }
-                break;
-            }
-            default: {
-                this.close(CloseCodes.MALFORMED_PACKET, 'Invalid packet identifier.')
-                break;
-            }
+      });
+    }
+
+    onMessage (message: WebSocket.Data) {
+      let packet: Packet;
+      try {
+        packet = this.parseMessage(message);
+      } catch (e) {
+        return this.close(CloseCodes.MALFORMED_PACKET, e.message);
+      }
+      switch (packet.i) {
+        case PacketIdentifiers.HEARTBEAT: {
+          this.lastHeartbeat = Date.now();
+          this.sendPacket<HeartbeatAckPacket>({
+            i: PacketIdentifiers.HEARTBEAT_ACK
+          });
+          break;
         }
-    }
-
-    sendJobInitAck(jobId: string, awaitingData: boolean) {
-        return this.sendPacket<JobInitAckPacket>({
-            i: PacketIdentifiers.JOB_INIT_ACK,
-            d: {
-                id: jobId,
-                awaiting_data: awaitingData
-            }
-        })
-    }
-
-    sendPacket<T = Packet>(data: T) {
-        return new Promise((resolve, reject) => {
-            this.socket.send(data, (err?: Error) => {
-                if(err) reject(err);
-                resolve();
-            });
-        })
-    }
-
-    parseMessage(message: WebSocket.Data): Packet {
-        if(typeof(message) !== 'string') throw new Error(`Packets must be valid JSON. (Receieved ${message.constructor.name})`);
-        let json;
-        try {
-            json = JSON.parse(message);
-        } catch(e) {
-            throw new Error(`Packets must be valid JSON. (${e.message})`);
+        case PacketIdentifiers.JOB_INIT_DATA: {
+          break;
         }
-        if(!json.i) throw new Error(`Packets must contain a valid identifier (\`i\` property)`);
-        return json;
+        case PacketIdentifiers.JOB_INIT: {
+          const parsedPacket = packet as JobInitPacket;
+          if (!parsedPacket.d.job) {
+            this.socket.close(CloseCodes.MALFORMED_PACKET, 'No job name provided.');
+          }
+          try {
+            this.processJobInit(parsedPacket.d.job);
+          } catch (e) {
+            this.socket.close(CloseCodes.MALFORMED_PACKET, e.message);
+          }
+          break;
+        }
+        default: {
+          this.close(CloseCodes.MALFORMED_PACKET, 'Invalid packet identifier.');
+          break;
+        }
+      }
     }
 
-    pendingJobExpired() {
-        this.close(CloseCodes.PENDING_JOB_NOT_SATISFIED, 'A pending job timed out before data was recieved.');
+    sendJobInitAck (jobId: string, awaitingData: boolean) {
+      return this.sendPacket<JobInitAckPacket>({
+        i: PacketIdentifiers.JOB_INIT_ACK,
+        d: {
+          id: jobId,
+          awaiting_data: awaitingData
+        }
+      });
     }
 
-    processJobInit(jobName: string) {
-        const connectionHasPendingJob = this.server.scheduler.jobIsPendingFor(this);
-        if(connectionHasPendingJob) throw new Error('This connection already has an unsatisfied pending job.');
-        const jobId = randomBytes(8).toString('hex');
-        this.server.scheduler.setPendingJob(this, jobId, jobName);
+    sendPacket<T = Packet> (data: T) {
+      return new Promise((resolve, reject) => {
+        this.socket.send(data, (err?: Error) => {
+          if (err) reject(err);
+          resolve();
+        });
+      });
+    }
+
+    parseMessage (message: WebSocket.Data): Packet {
+      if (typeof (message) !== 'string') throw new Error(`Packets must be valid JSON. (Receieved ${message.constructor.name})`);
+      let json;
+      try {
+        json = JSON.parse(message);
+      } catch (e) {
+        throw new Error(`Packets must be valid JSON. (${e.message})`);
+      }
+      if (!json.i) throw new Error('Packets must contain a valid identifier (`i` property)');
+      return json;
+    }
+
+    pendingJobExpired () {
+      this.close(CloseCodes.PENDING_JOB_NOT_SATISFIED, 'A pending job timed out before data was recieved.');
+    }
+
+    processJobInit (jobName: string) {
+      const connectionHasPendingJob = this.server.scheduler.jobIsPendingFor(this);
+      if (connectionHasPendingJob) throw new Error('This connection already has an unsatisfied pending job.');
+      const jobId = randomBytes(8).toString('hex');
+      this.server.scheduler.setPendingJob(this, jobId, jobName);
     }
 }
