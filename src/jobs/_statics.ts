@@ -1,8 +1,16 @@
+import { Serializable } from '../server/statics';
+
 export enum DataRequirement {
     NEVER = 'never',
     OPTIONAL = 'optional',
     ALWAYS = 'always'
 }
 
-export type SupportedMedia = 'apng' | 'gif' | 'jpeg' | 'png' | 'wav'
+export enum SupportedMedia {
+    JPEG,
+    PNG,
+    GIF
+}
 export type SupportedTypes = Set<SupportedMedia>
+
+export type Arguments = { [key: string]: Serializable }

@@ -43,6 +43,9 @@ export class WorkerMaster {
 
     private onSpawn () {
       this.state = WorkerStates.IDLE;
+      this.send({
+        i: WorkerIpcIdentifierCodes.WORKER_INIT
+      });
     }
 
     private send (message: WorkerIpcMessage) {
