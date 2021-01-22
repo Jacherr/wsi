@@ -7,7 +7,8 @@ export enum CloseCodes {
     UNIDENTIFIED_SOURCE = 4004,
     CONNECTION_RATELIMITED = 4005,
     MALFORMED_PACKET = 4006,
-    PENDING_JOB_NOT_SATISFIED = 4007
+    PENDING_JOB_NOT_SATISFIED = 4007,
+    INVALID_JOB_REQUEST = 4008
 }
 
 export enum PacketIdentifiers {
@@ -57,6 +58,7 @@ export interface JobInitPacket extends Packet {
     i: PacketIdentifiers.JOB_INIT
     d: {
         job: string
+        willSendData: boolean
     }
 }
 

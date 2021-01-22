@@ -6,6 +6,7 @@ export interface PendingJob {
     id: string
     job: Job
     setAt: number
+    willSendData: boolean
 }
 
 export interface ActiveJob {

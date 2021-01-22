@@ -16,6 +16,13 @@ export class WorkerManager {
       this.api = api;
       this.globalJobTimeout = options.globalJobTimeout ?? this.globalJobTimeout;
       this.workerCount = options.workerCount ?? this.workerCount;
+      this.createWorkers();
+    }
+
+    createWorkers () {
+      for (let i = 0; i < this.workerCount; i++) {
+        this.workers.push(new WorkerMaster());
+      }
     }
 
     async stopJobsFor (ids: string[]) {

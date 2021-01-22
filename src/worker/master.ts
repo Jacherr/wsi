@@ -10,7 +10,7 @@ export class WorkerMaster {
 
     constructor () {
       this.state = WorkerStates.IDLE;
-      this.slave = new WorkerThread('./worker/slave');
+      this.slave = new WorkerThread('./worker/slave.js');
       this.slave.on('error', this.onError.bind(this));
       this.slave.on('exit', this.onExit.bind(this));
       this.slave.on('message', this.onMessage.bind(this));
@@ -30,7 +30,7 @@ export class WorkerMaster {
 
     private onExit () {
       this.state = WorkerStates.IDLE;
-      this.slave = this.slave = new WorkerThread('./worker/slave');
+      this.slave = this.slave = new WorkerThread('./worker/slave.js');
     }
 
     private onMessage (message: WorkerIpcMessage) {

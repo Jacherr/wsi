@@ -90,6 +90,8 @@ export class WsiServer {
 
       const connection = new Connection(this, socket, sourceIp as string);
 
+      this.api.logIfVerbose(`New connection from IP ${sourceIp} established`);
+
       this.connections.add(connection);
       this.connectionsLength++;
 

@@ -58,7 +58,7 @@ export class Connection {
             this.socket.close(CloseCodes.MALFORMED_PACKET, 'No job name provided.');
           }
           try {
-            this.processJobInit(parsedPacket.d.job);
+            this.processJobInit(parsedPacket.d.job, parsedPacket.d.willSendData);
           } catch (e) {
             this.socket.close(CloseCodes.MALFORMED_PACKET, e.message);
           }
@@ -90,6 +90,15 @@ export class Connection {
       });
     }
 
+    sendStatus (status: string) {
+      return this.sendPacket({
+        i: PacketIdentifiers.JOB_STATUS,
+        d: {
+          status
+        }
+      });
+    }
+
     parseMessage (message: WebSocket.Data): Packet {
       if (typeof (message) !== 'string') throw new Error(`Packets must be valid JSON. (Receieved ${message.constructor.name})`);
       let json;
@@ -106,10 +115,15 @@ export class Connection {
       this.close(CloseCodes.PENDING_JOB_NOT_SATISFIED, 'A pending job timed out before data was recieved.');
     }
 
-    processJobInit (jobName: string) {
+    processJobInit (jobName: string, willSendData: boolean) {
       const connectionHasPendingJob = this.server.scheduler.jobIsPendingFor(this);
       if (connectionHasPendingJob) throw new Error('This connection already has an unsatisfied pending job.');
       const jobId = randomBytes(8).toString('hex');
-      this.server.scheduler.setPendingJob(this, jobId, jobName);
+      try {
+        this.server.scheduler.setPendingJob(this, jobId, jobName, willSendData);
+      } catch (e) {
+        this.close(CloseCodes.INVALID_JOB_REQUEST, e.message);
+      }
+      this.sendJobInitAck(jobId, true);
     }
 }

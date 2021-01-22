@@ -13,4 +13,4 @@ export enum SupportedMedia {
 }
 export type SupportedTypes = Set<SupportedMedia>
 
-export type Arguments = { [key: string]: Serializable }
+export type Arguments = { [key: string]: Serializable | undefined }
